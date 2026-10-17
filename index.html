@@ -90,9 +90,14 @@
 </main>
 
 <script>
-  // Leave empty when the backend serves this page.
-  // If this page is on GitHub Pages, set it to your backend URL, e.g. "https://clipbox.onrender.com"
-  const API_BASE = "";
+  // Backend address.
+  // If the Flask server serves this page, no setting is needed.
+  // If the page is opened any other way (Live Server, file, GitHub Pages),
+  // it calls BACKEND_URL. For GitHub Pages, set it to your deployed backend,
+  // e.g. "https://clipbox.onrender.com"
+  const BACKEND_URL = "http://localhost:5000";
+  const onBackend = location.protocol.startsWith("http") && !location.hostname.endsWith("github.io") && location.port !== "5500" && location.port !== "5501" && location.port !== "3000";
+  const API_BASE = onBackend ? "" : BACKEND_URL;
 
   const $ = id => document.getElementById(id);
   const urlInput = $("url"), fetchBtn = $("fetchBtn"), dlBtn = $("dlBtn");
@@ -112,14 +117,19 @@
     fetchBtn.disabled = true; fetchBtn.textContent = "Loading…";
     try {
       const res = await fetch(`${API_BASE}/api/info?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error("The backend isn't running. Start it with: python app.py"); }
       if (!res.ok) throw new Error(data.error);
       $("thumb").src = data.thumbnail || "";
       $("title").textContent = data.title;
       $("meta").textContent = [data.channel, fmt(data.duration)].filter(Boolean).join(" • ");
       preview.classList.add("show");
     } catch (e) {
-      errorEl.textContent = e.message || "Can't reach the server. Is the backend running?";
+      errorEl.textContent = e instanceof TypeError
+        ? "Can't reach the backend. Start it with: python app.py"
+        : e.message;
     } finally {
       fetchBtn.disabled = false; fetchBtn.textContent = "Get video";
     }
